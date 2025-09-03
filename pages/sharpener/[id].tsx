@@ -1,55 +1,94 @@
-import { createClient } from "@/lib/supabase/server"
-import { notFound } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Star, MapPin, Phone, Globe, Clock } from "lucide-react"
-import Link from "next/link"
-import { ReviewForm } from "@/components/review-form"
-import { ReviewCard } from "@/components/review-card"
+import type { GetServerSideProps, GetServerSidePropsContext, InferGetServerSidePropsType } from "next";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Star, MapPin, Phone, Globe, Clock } from "lucide-react";
+import Link from "next/link";
+import { ReviewForm } from "@/components/review-form";
+import { ReviewCard } from "@/components/review-card";
+import { mockSharpeners, mockReviews } from "@/lib/mock-data";
 
-interface PageProps {
-  params: { id: string }
+type Sharpener = {
+  id: string;
+  business_name: string;
+  city: string;
+  state: string;
+  description?: string;
+  services?: string[];
+  specialties?: string[];
+  years_experience?: number;
+  pricing_info?: string;
+  phone?: string;
+  website?: string | null;
+  mobile_service?: boolean;
+  pickup_delivery?: boolean;
+};
+
+type Review = {
+  id: string;
+  sharpener_id: string;
+  rating: number;
+  review_text: string;
+  customer_name: string;
+  created_at: string;
+};
+
+function parseCityState(location?: string): { city: string; state: string } {
+  if (!location) return { city: "", state: "" };
+  const parts = location.split(",");
+  return {
+    city: (parts[0] || "").trim(),
+    state: (parts[1] || "").trim(),
+  };
 }
 
-async function getSharpener(id: string) {
-  const supabase = createClient()
-
-  const { data: sharpener, error } = await supabase.from("sharpeners").select("*").eq("id", id).single()
-
-  if (error || !sharpener) {
-    return null
+export const getServerSideProps: GetServerSideProps<{
+  sharpener: Sharpener;
+  reviews: Review[];
+}> = async (ctx: GetServerSidePropsContext) => {
+  const id = ctx.params?.id as string | undefined;
+  if (!id) {
+    return { notFound: true };
   }
 
-  return sharpener
-}
-
-async function getReviews(sharpenerId: string) {
-  const supabase = createClient()
-
-  const { data: reviews, error } = await supabase
-    .from("reviews")
-    .select("*")
-    .eq("sharpener_id", sharpenerId)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching reviews:", error)
-    return []
+  const source = mockSharpeners.find((s) => s.id === id);
+  if (!source) {
+    return { notFound: true };
   }
 
-  return reviews || []
-}
+  const { city, state } = parseCityState((source as any).location);
 
-export default async function SharpenerProfilePage({ params }: PageProps) {
-  const sharpener = await getSharpener(params.id)
+  const sharpener: Sharpener = {
+    id: source.id,
+    business_name: (source as any).name ?? "",
+    city,
+    state,
+    description: (source as any).description,
+    services: (source as any).services,
+    specialties: (source as any).specialties,
+    years_experience: (source as any).yearsExperience,
+    pricing_info: (source as any).priceRange ?? (source as any).pricing,
+    phone: (source as any).phone,
+    website: (source as any).website,
+    mobile_service: (source as any).mobileService ?? false,
+    pickup_delivery: (source as any).pickupDelivery ?? false,
+  };
 
-  if (!sharpener) {
-    notFound()
-  }
+  const reviews = mockReviews.filter((r) => r.sharpener_id === id) as Review[];
 
-  const reviews = await getReviews(params.id)
-  const averageRating = reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0
+  return {
+    props: {
+      sharpener,
+      reviews,
+    },
+  };
+};
+
+export default function SharpenerProfilePage({
+  sharpener,
+  reviews,
+}: InferGetServerSidePropsType<typeof getServerSideProps>) {
+  const averageRating = reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -59,18 +98,17 @@ export default async function SharpenerProfilePage({ params }: PageProps) {
           i < Math.floor(rating)
             ? "fill-yellow-400 text-yellow-400"
             : i < rating
-              ? "fill-yellow-400/50 text-yellow-400"
-              : "text-gray-300"
+            ? "fill-yellow-400/50 text-yellow-400"
+            : "text-gray-300"
         }`}
       />
-    ))
-  }
+    ));
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
           <Card className="mb-8">
             <CardHeader>
               <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
@@ -103,17 +141,17 @@ export default async function SharpenerProfilePage({ params }: PageProps) {
                   </div>
 
                   <div className="flex flex-col gap-3">
-                    <Button className="w-full lg:w-auto">
-                      <Phone className="mr-2 h-4 w-4" />
-                      Call {sharpener.phone}
-                    </Button>
+                    {sharpener.phone && (
+                      <Button className="w-full lg:w-auto">
+                        <Phone className="mr-2 h-4 w-4" />
+                        Call {sharpener.phone}
+                      </Button>
+                    )}
 
                     {sharpener.website && (
                       <Button variant="outline" asChild>
                         <Link
-                          href={
-                            sharpener.website.startsWith("http") ? sharpener.website : `https://${sharpener.website}`
-                          }
+                          href={sharpener.website.startsWith("http") ? sharpener.website : `https://${sharpener.website}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -128,7 +166,6 @@ export default async function SharpenerProfilePage({ params }: PageProps) {
             </CardHeader>
           </Card>
 
-          {/* Services and Details */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <Card>
               <CardHeader>
@@ -185,18 +222,17 @@ export default async function SharpenerProfilePage({ params }: PageProps) {
             </Card>
           </div>
 
-          {/* Reviews Section */}
           <Card>
             <CardHeader>
               <CardTitle>Customer Reviews</CardTitle>
             </CardHeader>
             <CardContent>
-              <ReviewForm sharpenerId={params.id} onReviewSubmitted={() => window.location.reload()} />
+              <ReviewForm sharpenerId={sharpener.id} onReviewSubmitted={() => window.location.reload()} />
 
               {reviews.length > 0 ? (
                 <div className="space-y-4">
                   {reviews.map((review) => (
-                    <ReviewCard key={review.id} review={review} />
+                    <ReviewCard key={review.id} review={review as any} />
                   ))}
                 </div>
               ) : (
@@ -209,5 +245,6 @@ export default async function SharpenerProfilePage({ params }: PageProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
+

@@ -180,7 +180,7 @@ export default function HomePage() {
 
             <Card className="bg-card border border-border rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 text-center p-8 md:col-span-2 lg:col-span-1">
               <CardHeader className="pb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-primary via-accent to-primary rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-primary via-accent to-primary rounded-2xl flex itemscenter justify-center mx-auto mb-6">
                   <Star className="h-8 w-8 text-white" />
                 </div>
                 <CardTitle className="text-2xl font-bold">Quality Guaranteed</CardTitle>
@@ -402,3 +402,4 @@ export default function HomePage() {
     </div>
   )
 }
+
